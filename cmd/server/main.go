@@ -40,6 +40,13 @@ func main() {
 		log.Fatalf("ensure schema error: %v", err)
 	}
 	log.Println("D1 schema ready")
+	if applied, err := db.EnsureGallerySeqBaselineIfEmpty(bootstrapCtx, cfg.GalleryBaselineH, cfg.GalleryBaselineV); err != nil {
+		log.Fatalf("init gallery seq baseline error: %v", err)
+	} else if applied {
+		log.Printf("gallery seq baseline initialized: h=%d, v=%d", cfg.GalleryBaselineH, cfg.GalleryBaselineV)
+	} else if cfg.GalleryBaselineH > 0 || cfg.GalleryBaselineV > 0 {
+		log.Printf("gallery seq baseline skipped (already initialized or gallery_images not empty): h=%d, v=%d", cfg.GalleryBaselineH, cfg.GalleryBaselineV)
+	}
 
 	r2, err := storage.NewR2Client(bootstrapCtx, storage.R2Config{
 		Endpoint:  cfg.R2Endpoint,

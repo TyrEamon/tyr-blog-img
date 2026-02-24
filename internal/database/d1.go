@@ -214,6 +214,12 @@ func (c *Client) NextGallerySeq(ctx context.Context, orientation string) (int64,
 	if orientation == "" {
 		return 0, fmt.Errorf("invalid orientation")
 	}
+
+	baseline, err := c.GetGallerySeqBaseline(ctx, orientation)
+	if err != nil {
+		return 0, err
+	}
+
 	rows, err := c.exec(ctx,
 		"SELECT COALESCE(MAX(seq), 0) + 1 AS next_seq FROM gallery_images WHERE orientation = ?",
 		orientation,
@@ -226,9 +232,83 @@ func (c *Client) NextGallerySeq(ctx context.Context, orientation string) (int64,
 	}
 	next := rowInt64(rows[0], "next_seq")
 	if next < 1 {
-		return 1, nil
+		next = 1
+	}
+	if baseline > 0 && next < baseline+1 {
+		next = baseline + 1
 	}
 	return next, nil
+}
+
+func (c *Client) EnsureGallerySeqBaselineIfEmpty(ctx context.Context, hLastSeq, vLastSeq int64) (bool, error) {
+	if hLastSeq < 0 {
+		hLastSeq = 0
+	}
+	if vLastSeq < 0 {
+		vLastSeq = 0
+	}
+	if hLastSeq == 0 && vLastSeq == 0 {
+		return false, nil
+	}
+
+	rows, err := c.exec(ctx, "SELECT 1 FROM gallery_images LIMIT 1")
+	if err != nil {
+		return false, err
+	}
+	if len(rows) > 0 {
+		return false, nil
+	}
+
+	marker, ok, err := c.GetCrawlerState(ctx, "gallery_seq_baseline_initialized")
+	if err != nil {
+		return false, err
+	}
+	if ok && strings.TrimSpace(marker) != "" {
+		return false, nil
+	}
+
+	if hLastSeq > 0 {
+		if err := c.SetGallerySeqBaseline(ctx, "h", hLastSeq); err != nil {
+			return false, err
+		}
+	}
+	if vLastSeq > 0 {
+		if err := c.SetGallerySeqBaseline(ctx, "v", vLastSeq); err != nil {
+			return false, err
+		}
+	}
+	if err := c.SetCrawlerState(ctx, "gallery_seq_baseline_initialized", fmt.Sprintf("h=%d,v=%d", hLastSeq, vLastSeq)); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (c *Client) GetGallerySeqBaseline(ctx context.Context, orientation string) (int64, error) {
+	orientation = normalizeOrientation(orientation)
+	if orientation == "" {
+		return 0, fmt.Errorf("invalid orientation")
+	}
+	key := gallerySeqBaselineKey(orientation)
+	v, ok, err := c.GetCrawlerState(ctx, key)
+	if err != nil || !ok {
+		return 0, err
+	}
+	n, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64)
+	if err != nil || n < 0 {
+		return 0, nil
+	}
+	return n, nil
+}
+
+func (c *Client) SetGallerySeqBaseline(ctx context.Context, orientation string, lastSeq int64) error {
+	orientation = normalizeOrientation(orientation)
+	if orientation == "" {
+		return fmt.Errorf("invalid orientation")
+	}
+	if lastSeq < 0 {
+		return fmt.Errorf("baseline seq must be >= 0")
+	}
+	return c.SetCrawlerState(ctx, gallerySeqBaselineKey(orientation), strconv.FormatInt(lastSeq, 10))
 }
 
 func (c *Client) InsertGalleryImage(ctx context.Context, img GalleryImage) error {
@@ -327,6 +407,10 @@ func normalizeOrientation(v string) string {
 		return v
 	}
 	return ""
+}
+
+func gallerySeqBaselineKey(orientation string) string {
+	return "gallery_seq_baseline:" + orientation
 }
 
 func rowString(row map[string]interface{}, key string) string {

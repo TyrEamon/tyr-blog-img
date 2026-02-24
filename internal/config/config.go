@@ -42,6 +42,9 @@ type Config struct {
 	TwitterRSSSources        []string
 	TwitterAuthorIntervalMin int
 	TwitterAuthorFetchLimit  int
+
+	GalleryBaselineH int64
+	GalleryBaselineV int64
 }
 
 func Load() Config {
@@ -87,6 +90,9 @@ func Load() Config {
 		TwitterRSSSources:        parseStringList(os.Getenv("TWITTER_RSS_SOURCES"), ";"),
 		TwitterAuthorIntervalMin: envInt("TWITTER_AUTHOR_INTERVAL_MINUTES", 60),
 		TwitterAuthorFetchLimit:  envInt("TWITTER_AUTHOR_FETCH_LIMIT", 20),
+
+		GalleryBaselineH: envInt64("GALLERY_BASELINE_H", 0),
+		GalleryBaselineV: envInt64("GALLERY_BASELINE_V", 0),
 	}
 }
 
@@ -128,6 +134,15 @@ func envOrDefault(key, fallback string) string {
 func envInt(key string, fallback int) int {
 	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
 		if i, err := strconv.Atoi(v); err == nil {
+			return i
+		}
+	}
+	return fallback
+}
+
+func envInt64(key string, fallback int64) int64 {
+	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+		if i, err := strconv.ParseInt(v, 10, 64); err == nil {
 			return i
 		}
 	}

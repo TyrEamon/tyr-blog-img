@@ -47,3 +47,15 @@ go run ./cmd/server
 ```
 
 未配置 D1 时也可启动，仅提供 `/healthz`。
+
+## Docker / GHCR
+
+- 已提供 `Dockerfile`（运行镜像内置 `cwebp`，供混合模式转码器调用）
+- 已提供 GitHub Actions 工作流：`.github/workflows/docker-ghcr.yml`
+- 推送到 `main` 后会构建并推送镜像到 `ghcr.io/<owner>/<repo>`
+
+常见标签：
+
+- `latest`（`main` 分支）
+- `sha-<commit>`
+- `v*`（当你推版本 tag 时）

@@ -1,0 +1,12 @@
+.git
+.github
+.gitignore
+
+README.md
+
+bin
+dist
+
+*.log
+*.tmp
+*.swp

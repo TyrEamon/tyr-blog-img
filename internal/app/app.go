@@ -39,6 +39,9 @@ func (a *App) CanHandleTGMessage(msg *models.Message) bool {
 	if msg == nil {
 		return false
 	}
+	if cmd, _ := parseTGCommand(msg.Text); cmd != "" {
+		return true
+	}
 	if len(msg.Photo) > 0 || msg.Document != nil || msg.Video != nil || msg.Animation != nil {
 		return true
 	}
@@ -54,6 +57,10 @@ func (a *App) HandleTGMessage(ctx context.Context, msg *models.Message) (*TGInge
 	}
 	if msg.From == nil || !a.Cfg.IsTGUserAllowed(msg.From.ID) {
 		return &TGIngestResult{Summary: "未授权使用该入库功能"}, nil
+	}
+
+	if cmd, args := parseTGCommand(msg.Text); cmd != "" {
+		return a.handleTGCommand(ctx, cmd, args)
 	}
 
 	links := extractSupportedLinks(msg.Text, msg.Caption)

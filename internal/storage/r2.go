@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"strings"
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -58,13 +59,21 @@ func NewR2Client(ctx context.Context, cfg R2Config) (*R2Client, error) {
 }
 
 func (c *R2Client) PutObject(ctx context.Context, key string, data []byte, contentType string) error {
+	return c.PutObjectWithCacheControl(ctx, key, data, contentType, "public, max-age=31536000, immutable")
+}
+
+func (c *R2Client) PutObjectWithCacheControl(ctx context.Context, key string, data []byte, contentType, cacheControl string) error {
 	key = strings.TrimSpace(key)
 	contentType = strings.TrimSpace(contentType)
+	cacheControl = strings.TrimSpace(cacheControl)
 	if key == "" {
 		return fmt.Errorf("empty key")
 	}
 	if contentType == "" {
 		contentType = "application/octet-stream"
+	}
+	if cacheControl == "" {
+		cacheControl = "public, max-age=31536000, immutable"
 	}
 
 	_, err := c.s3.PutObject(ctx, &s3.PutObjectInput{
@@ -72,9 +81,34 @@ func (c *R2Client) PutObject(ctx context.Context, key string, data []byte, conte
 		Key:          &key,
 		Body:         bytes.NewReader(data),
 		ContentType:  &contentType,
-		CacheControl: strPtr("public, max-age=31536000, immutable"),
+		CacheControl: &cacheControl,
 	})
 	return err
+}
+
+func (c *R2Client) GetObject(ctx context.Context, key string) ([]byte, string, error) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return nil, "", fmt.Errorf("empty key")
+	}
+	out, err := c.s3.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: &c.bucket,
+		Key:    &key,
+	})
+	if err != nil {
+		return nil, "", err
+	}
+	defer out.Body.Close()
+
+	data, err := io.ReadAll(out.Body)
+	if err != nil {
+		return nil, "", err
+	}
+	contentType := ""
+	if out.ContentType != nil {
+		contentType = strings.TrimSpace(*out.ContentType)
+	}
+	return data, contentType, nil
 }
 
 func (c *R2Client) DeleteObject(ctx context.Context, key string) error {

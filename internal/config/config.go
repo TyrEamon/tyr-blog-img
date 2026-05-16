@@ -23,6 +23,9 @@ type Config struct {
 	R2SecretKey string
 
 	BotToken         string
+	BotMode          string
+	TGWebhookSecret  string
+	TGWebhookURL     string
 	TGAllowedUserIDs map[int64]struct{}
 
 	PixivPHPSESSID           string
@@ -71,6 +74,9 @@ func Load() Config {
 		R2SecretKey:  strings.TrimSpace(os.Getenv("R2_SECRET_ACCESS_KEY")),
 
 		BotToken:         strings.TrimSpace(os.Getenv("BOT_TOKEN")),
+		BotMode:          strings.ToLower(envOrDefault("BOT_MODE", "polling")),
+		TGWebhookSecret:  strings.TrimSpace(os.Getenv("TELEGRAM_WEBHOOK_SECRET")),
+		TGWebhookURL:     strings.TrimSpace(os.Getenv("TELEGRAM_WEBHOOK_URL")),
 		TGAllowedUserIDs: parseIDSet(os.Getenv("TG_ALLOWED_USER_IDS")),
 
 		PixivPHPSESSID:           strings.TrimSpace(os.Getenv("PIXIV_PHPSESSID")),
@@ -106,6 +112,14 @@ func (c Config) HasR2() bool {
 
 func (c Config) HasTelegram() bool {
 	return c.BotToken != ""
+}
+
+func (c Config) IsTelegramWebhookMode() bool {
+	return strings.EqualFold(c.BotMode, "webhook")
+}
+
+func (c Config) IsTelegramPollingMode() bool {
+	return c.BotMode == "" || strings.EqualFold(c.BotMode, "polling")
 }
 
 func (c Config) HasPixivCrawler() bool {

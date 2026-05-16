@@ -26,6 +26,9 @@ import (
 func main() {
 	cfg := config.Load()
 
+	if !cfg.IsTelegramPollingMode() && !cfg.IsTelegramWebhookMode() {
+		log.Fatalf("unsupported BOT_MODE %q (use polling or webhook)", cfg.BotMode)
+	}
 	if !cfg.HasD1() {
 		log.Fatal("D1 credentials missing")
 	}
@@ -64,7 +67,14 @@ func main() {
 
 	var tg *telegram.Client
 	if cfg.HasTelegram() {
-		tg, err = telegram.New(cfg.BotToken)
+		var botOpts []tgbot.Option
+		if cfg.IsTelegramWebhookMode() {
+			if cfg.TGWebhookSecret == "" {
+				log.Fatal("TELEGRAM_WEBHOOK_SECRET is required when BOT_MODE=webhook")
+			}
+			botOpts = append(botOpts, tgbot.WithWebhookSecretToken(cfg.TGWebhookSecret))
+		}
+		tg, err = telegram.New(cfg.BotToken, botOpts...)
 		if err != nil {
 			log.Fatalf("init telegram bot error: %v", err)
 		}
@@ -117,6 +127,17 @@ func main() {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		_, _ = w.Write([]byte("ok"))
 	})
+	if tg != nil && cfg.IsTelegramWebhookMode() {
+		webhookHandler := tg.Bot.WebhookHandler()
+		mux.HandleFunc("/telegram/webhook", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				w.Header().Set("Allow", http.MethodPost)
+				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+				return
+			}
+			webhookHandler(w, r)
+		})
+	}
 
 	httpSrv := &http.Server{Addr: cfg.ListenAddr, Handler: mux}
 	go func() {
@@ -127,7 +148,26 @@ func main() {
 	}()
 
 	if tg != nil {
-		go tg.Start(ctx)
+		if cfg.IsTelegramWebhookMode() {
+			go tg.StartWebhook(ctx)
+			if cfg.TGWebhookURL != "" {
+				webhookCtx, cancelWebhook := context.WithTimeout(context.Background(), 15*time.Second)
+				if _, err := tg.Bot.SetWebhook(webhookCtx, &tgbot.SetWebhookParams{
+					URL:            cfg.TGWebhookURL,
+					SecretToken:    cfg.TGWebhookSecret,
+					AllowedUpdates: []string{models.AllowedUpdateMessage},
+				}); err != nil {
+					cancelWebhook()
+					log.Fatalf("set telegram webhook error: %v", err)
+				}
+				cancelWebhook()
+				log.Printf("telegram webhook configured: %s", cfg.TGWebhookURL)
+			} else {
+				log.Println("telegram webhook mode enabled; TELEGRAM_WEBHOOK_URL not set, configure setWebhook manually")
+			}
+		} else {
+			go tg.Start(ctx)
+		}
 	}
 
 	<-ctx.Done()

@@ -24,8 +24,8 @@ type Client struct {
 	Token string
 }
 
-func New(token string) (*Client, error) {
-	b, err := bot.New(strings.TrimSpace(token))
+func New(token string, opts ...bot.Option) (*Client, error) {
+	b, err := bot.New(strings.TrimSpace(token), opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -96,6 +96,10 @@ func (c *Client) DownloadFile(ctx context.Context, fileID string) ([]byte, strin
 
 func (c *Client) Start(ctx context.Context) {
 	c.Bot.Start(ctx)
+}
+
+func (c *Client) StartWebhook(ctx context.Context) {
+	c.Bot.StartWebhook(ctx)
 }
 
 func (c *Client) Stop() {}

@@ -1,5 +1,26 @@
 # tyr-blog-img
 
+## Pinterest 链接入库
+
+Telegram bot 现在支持直接发送 Pinterest 链接：
+
+- `https://pin.it/...`
+- `https://www.pinterest.com/pin/...`
+- `https://jp.pinterest.com/pin/...`
+
+处理流程：
+
+1. 解析 `pin.it` 短链到真实 pin 页面。
+2. 从页面中提取 `i.pinimg.com` 图片候选。
+3. 优先尝试 `originals` 原图，并在同一图片 hash 下依次尝试 `.jpg`、`.jpeg`、`.png`、`.webp`。
+4. 如果 `originals` 不可用，自动降级到 `1200x`、`736x`、`564x`。
+5. 下载到的图片继续走现有 `StoreToGallery()` 流程：去重、判断横竖、通过 `cwebp` 压成 WebP、上传到 R2 的 `ri/h/{seq}.webp` 或 `ri/v/{seq}.webp`，并写入 D1。
+
+注意：
+
+- Pinterest 视频/GIF pin 只抓可用的静态封面图，不存 MP4。
+- 图片入库后仍需向 bot 发送 `/updata`，同步更新 R2 上的 `counts.json`、`random.js` 和 `random-img-only.js`。
+
 `tyr-blog-img` 是给 `fuwari /gallery/` 提供图源的后端项目（后续目标：Go 爬虫 + D1 + R2）。
 
 当前阶段（MVP 第 1 步）已完成：

@@ -11,19 +11,21 @@ import (
 const maxTGLinksPerMessage = 3
 
 var (
-	urlPattern       = regexp.MustCompile(`https?://[^\s]+`)
-	pixivIDPattern   = regexp.MustCompile(`^\d+$`)
-	yandeIDPattern   = regexp.MustCompile(`^\d+$`)
-	twitterIDPattern = regexp.MustCompile(`^\d+$`)
-	punctuationTrim  = ".,;:!?)]}>'\"\uFF0C\u3002\uFF01\uFF1F\u3001\uFF09\u3011\u300B"
+	urlPattern         = regexp.MustCompile(`https?://[^\s]+`)
+	pixivIDPattern     = regexp.MustCompile(`^\d+$`)
+	yandeIDPattern     = regexp.MustCompile(`^\d+$`)
+	twitterIDPattern   = regexp.MustCompile(`^\d+$`)
+	pinterestIDPattern = regexp.MustCompile(`^\d+$`)
+	punctuationTrim    = ".,;:!?)]}>'\"\uFF0C\u3002\uFF01\uFF1F\u3001\uFF09\u3011\u300B"
 )
 
 type linkType string
 
 const (
-	linkPixiv   linkType = "pixiv"
-	linkYande   linkType = "yande"
-	linkTwitter linkType = "twitter"
+	linkPixiv     linkType = "pixiv"
+	linkYande     linkType = "yande"
+	linkTwitter   linkType = "twitter"
+	linkPinterest linkType = "pinterest"
 )
 
 type supportedLink struct {
@@ -99,6 +101,32 @@ func extractSupportedLinks(parts ...string) []supportedLink {
 			seen[key] = struct{}{}
 			out = append(out, supportedLink{Type: linkTwitter, ID: id, URL: canonicalTwitterURL(username, id)})
 		}
+
+		if host == "pin.it" {
+			id := strings.Trim(pathVal, "/")
+			if id == "" {
+				id = clean
+			}
+			key := string(linkPinterest) + ":" + clean
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			out = append(out, supportedLink{Type: linkPinterest, ID: id, URL: clean})
+		}
+
+		if isPinterestHost(host) {
+			id, ok := parsePinterestPath(segments)
+			if !ok {
+				continue
+			}
+			key := string(linkPinterest) + ":" + id
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			out = append(out, supportedLink{Type: linkPinterest, ID: id, URL: clean})
+		}
 	}
 	return out
 }
@@ -106,6 +134,11 @@ func extractSupportedLinks(parts ...string) []supportedLink {
 func isTwitterHost(host string) bool {
 	host = strings.TrimSpace(strings.ToLower(host))
 	return host == "x.com" || host == "twitter.com" || host == "mobile.twitter.com"
+}
+
+func isPinterestHost(host string) bool {
+	host = strings.TrimSpace(strings.ToLower(host))
+	return host == "pinterest.com" || strings.HasSuffix(host, ".pinterest.com")
 }
 
 func parseTwitterPath(parts []string) (username, id string, ok bool) {
@@ -120,6 +153,15 @@ func parseTwitterPath(parts []string) (username, id string, ok bool) {
 		return username, id, true
 	}
 	return "", "", false
+}
+
+func parsePinterestPath(parts []string) (id string, ok bool) {
+	for i := 0; i+1 < len(parts); i++ {
+		if parts[i] == "pin" && pinterestIDPattern.MatchString(parts[i+1]) {
+			return parts[i+1], true
+		}
+	}
+	return "", false
 }
 
 func canonicalTwitterURL(username, tweetID string) string {
@@ -154,6 +196,8 @@ func (a *App) handleTGLinks(ctx context.Context, links []supportedLink) (*TGInge
 			res, err = a.ingestYandeFromLink(ctx, item)
 		case linkTwitter:
 			res, err = a.ingestTwitterFromLink(ctx, item)
+		case linkPinterest:
+			res, err = a.ingestPinterestFromLink(ctx, item)
 		default:
 			continue
 		}

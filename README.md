@@ -59,6 +59,13 @@ Telegram bot 现在支持直接发送 Pinterest 链接：
 - `R2_BUCKET`
 - `R2_ACCESS_KEY_ID`
 - `R2_SECRET_ACCESS_KEY`
+- `BOT_TOKEN`（可选，启用 Telegram 入库）
+- `BOT_MODE`（`polling` 或 `webhook`，默认 `polling`）
+- `TELEGRAM_DELETE_WEBHOOK_ON_POLLING`（`true/false`，默认 `false`）
+  - 从 webhook 托管切回 polling 时设为 `true`，启动时会先删除 Telegram 旧 webhook，再使用 `getUpdates`。
+  - 默认保留积压消息（`drop_pending_updates=false`）。
+- `TELEGRAM_WEBHOOK_URL`（`BOT_MODE=webhook` 时使用）
+- `TELEGRAM_WEBHOOK_SECRET`（`BOT_MODE=webhook` 时必填）
 - `R2_REGION`（可选，默认 `auto`）
 
 命令：

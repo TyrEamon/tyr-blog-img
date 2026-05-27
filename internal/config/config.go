@@ -22,11 +22,12 @@ type Config struct {
 	R2AccessKey string
 	R2SecretKey string
 
-	BotToken         string
-	BotMode          string
-	TGWebhookSecret  string
-	TGWebhookURL     string
-	TGAllowedUserIDs map[int64]struct{}
+	BotToken               string
+	BotMode                string
+	TGWebhookSecret        string
+	TGWebhookURL           string
+	DeleteWebhookOnPolling bool
+	TGAllowedUserIDs       map[int64]struct{}
 
 	PixivPHPSESSID           string
 	PixivUserID              string
@@ -73,11 +74,12 @@ func Load() Config {
 		R2AccessKey:  strings.TrimSpace(os.Getenv("R2_ACCESS_KEY_ID")),
 		R2SecretKey:  strings.TrimSpace(os.Getenv("R2_SECRET_ACCESS_KEY")),
 
-		BotToken:         strings.TrimSpace(os.Getenv("BOT_TOKEN")),
-		BotMode:          strings.ToLower(envOrDefault("BOT_MODE", "polling")),
-		TGWebhookSecret:  strings.TrimSpace(os.Getenv("TELEGRAM_WEBHOOK_SECRET")),
-		TGWebhookURL:     strings.TrimSpace(os.Getenv("TELEGRAM_WEBHOOK_URL")),
-		TGAllowedUserIDs: parseIDSet(os.Getenv("TG_ALLOWED_USER_IDS")),
+		BotToken:               strings.TrimSpace(os.Getenv("BOT_TOKEN")),
+		BotMode:                strings.ToLower(envOrDefault("BOT_MODE", "polling")),
+		TGWebhookSecret:        strings.TrimSpace(os.Getenv("TELEGRAM_WEBHOOK_SECRET")),
+		TGWebhookURL:           strings.TrimSpace(os.Getenv("TELEGRAM_WEBHOOK_URL")),
+		DeleteWebhookOnPolling: envBool("TELEGRAM_DELETE_WEBHOOK_ON_POLLING", false),
+		TGAllowedUserIDs:       parseIDSet(os.Getenv("TG_ALLOWED_USER_IDS")),
 
 		PixivPHPSESSID:           strings.TrimSpace(os.Getenv("PIXIV_PHPSESSID")),
 		PixivUserID:              strings.TrimSpace(os.Getenv("PIXIV_USER_ID")),

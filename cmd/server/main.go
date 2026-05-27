@@ -166,6 +166,17 @@ func main() {
 				log.Println("telegram webhook mode enabled; TELEGRAM_WEBHOOK_URL not set, configure setWebhook manually")
 			}
 		} else {
+			if cfg.DeleteWebhookOnPolling {
+				webhookCtx, cancelWebhook := context.WithTimeout(context.Background(), 15*time.Second)
+				if _, err := tg.Bot.DeleteWebhook(webhookCtx, &tgbot.DeleteWebhookParams{
+					DropPendingUpdates: false,
+				}); err != nil {
+					cancelWebhook()
+					log.Fatalf("delete telegram webhook before polling error: %v", err)
+				}
+				cancelWebhook()
+				log.Println("telegram webhook deleted before polling")
+			}
 			go tg.Start(ctx)
 		}
 	}
